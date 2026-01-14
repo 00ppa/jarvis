@@ -1,62 +1,77 @@
+"""
+JARVIS Speech Module
+Handles voice input (speech recognition) and output (text-to-speech)
+"""
+
 import speech_recognition as sr
-import pyttsx3  # Text-to-Speech Engine
+import pyttsx3
 
-# Initialize the TTS engine
+# ============================================
+# TEXT-TO-SPEECH CONFIGURATION
+# ============================================
+
 engine = pyttsx3.init()
-
-# Get all available voices
 voices = engine.getProperty('voices')
 
-# Try setting a high-pitched female voice
+# Select a female voice for JARVIS (like FRIDAY)
 selected_voice = None
 for voice in voices:
-    if "zira" in voice.name.lower() or "eva" in voice.name.lower() or "female" in voice.name.lower():
+    if any(name in voice.name.lower() for name in ["zira", "eva", "female", "hazel"]):
         selected_voice = voice.id
-        break  # Use the first detected female voice
+        break
 
 if selected_voice:
     engine.setProperty('voice', selected_voice)
 else:
-    print("Warning: No female voice found! Using default.")
+    print("⚠️ Warning: No female voice found! Using default.")
 
-engine.setProperty("rate", 190)  # Slightly faster speed
+engine.setProperty("rate", 180)  # Speech rate (words per minute)
 engine.setProperty("volume", 1.0)  # Max volume
 
 def speak(text):
-    """Convert text to speech."""
-    print(f"Jarvis: {text}")  # Print response for debugging
+    """Convert text to speech with console output."""
+    print(f"🤖 JARVIS: {text}")
     engine.say(text)
     engine.runAndWait()
 
-recognizer = sr.Recognizer()
-
-
-import speech_recognition as sr
+# ============================================
+# SPEECH RECOGNITION CONFIGURATION
+# ============================================
 
 recognizer = sr.Recognizer()
 mic = sr.Microphone()
 
-# 🔹 Boost microphone sensitivity (run once before listen)
+# Boost microphone sensitivity for better detection
 with mic as source:
-    recognizer.energy_threshold = 300  # More sensitive to low voices
+    recognizer.energy_threshold = 300  # Lower = more sensitive
+    recognizer.dynamic_energy_threshold = True
 
-def listen():
-    """Listen to user input and return as text."""
+def listen(timeout=5, phrase_limit=8):
+    """
+    Listen to user input and return transcribed text.
+    
+    Args:
+        timeout: Max seconds to wait for speech to start
+        phrase_limit: Max seconds for a single phrase
+    
+    Returns:
+        Lowercase transcribed text, or empty string on failure
+    """
     with mic as source:
-        print("Listening... 🎤")
-        recognizer.adjust_for_ambient_noise(source, duration=0.5)  # Faster noise calibration
+        print("🎤 Listening...")
+        recognizer.adjust_for_ambient_noise(source, duration=0.3)
         try:
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=3)  # Faster response
+            audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_limit)
             text = recognizer.recognize_google(audio).lower()
-            print(f"You said: {text}")
+            print(f"👤 You said: {text}")
             return text
         except sr.UnknownValueError:
-            print("🤖 Sorry, I didn't catch that!")
             return ""
         except sr.RequestError:
-            print("🚨 Speech recognition service is down.")
+            print("🚨 Speech recognition service unavailable.")
+            return ""
+        except sr.WaitTimeoutError:
             return ""
         except Exception as e:
             print(f"⚠️ Error: {e}")
             return ""
-
