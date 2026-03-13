@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from modules.speech_module import speak
 from modules.system_monitor import get_system_monitor
 from core.memory_module import get_memory
+from modules.telegram_module import get_telegram_bridge
 from config import JARVIS_CONFIG
 
 class ProactiveEngine:
@@ -64,6 +65,11 @@ class ProactiveEngine:
             # Only alert if we haven't alerted for this in the last 5 minutes
             if not last_alert or (datetime.now() - last_alert).seconds > 300:
                 speak(f"Sir, {alert}")
+                
+                # Also send to mobile
+                telegram = get_telegram_bridge()
+                telegram.send_notification(alert)
+                
                 self.last_alerts[alert_key] = datetime.now()
     
     def _check_break_reminder(self):

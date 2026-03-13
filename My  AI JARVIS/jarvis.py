@@ -18,6 +18,9 @@ Version: 2.0
 """
 
 import sys
+import datetime
+import time
+import os
 sys.path.insert(0, '.')
 
 # Core modules
@@ -40,6 +43,9 @@ from modules.productivity_module import (
     remind_me, take_note, set_timer, add_todo,
     get_productivity
 )
+from modules.telegram_module import get_telegram_bridge
+from modules.calendar_module import get_calendar_manager
+from modules.notion_module import get_notion_manager
 
 # Core AI
 from core.ai_brain import get_brain
@@ -52,16 +58,22 @@ from features.emotion_module import detect_mood, adapt_response, get_encourageme
 from features.vision_module import whats_on_screen, check_errors, help_with_code
 
 # Config
-from config import JARVIS_CONFIG
+from config import JARVIS_CONFIG, PLUGIN_CONFIG
+
+# Plugins
+from core.plugin_loader import initialize_plugins, handle_plugin_command, get_plugin_loader
 
 
-def execute_command(command):
+def execute_command(command, speak_response=True):
     """
     Process and execute user commands.
     Uses AI brain for natural language understanding.
+    Returns: Response string if any.
     """
     if not command:
-        return
+        return None
+    
+    response_text = ""
     
     # Detect user mood
     mood = detect_mood(command)
@@ -70,12 +82,65 @@ def execute_command(command):
     personality = get_personality()
     easter_egg = personality.check_easter_egg(command)
     if easter_egg:
-        speak(easter_egg)
-        return
+        if speak_response: speak(easter_egg)
+        return easter_egg
     
     # Greetings and Conversation
     if respond_to_greetings(command):
+        return "Hello Sir!"
+    
+    # =========================================
+    # PLUGIN MANAGEMENT COMMANDS
+    # =========================================
+    
+    if "list plugins" in command or "show plugins" in command:
+        loader = get_plugin_loader()
+        plugins = loader.get_plugin_list()
+        if plugins:
+            speak(f"I have {len(plugins)} plugins loaded, Sir.")
+            for p in plugins:
+                speak(f"{p['name']} version {p['version']}")
+        else:
+            speak("No plugins are currently loaded, Sir.")
         return
+    
+    elif "reload plugins" in command:
+        loader = get_plugin_loader()
+        count = loader.reload_plugins()
+        speak(f"Reloaded {count} plugins, Sir.")
+        return
+    
+    elif "disable plugin" in command:
+        plugin_name = command.replace("disable plugin", "").strip()
+        if plugin_name:
+            loader = get_plugin_loader()
+            if loader.disable_plugin(plugin_name):
+                speak(f"Disabled {plugin_name} plugin, Sir.")
+            else:
+                speak(f"Could not find plugin {plugin_name}, Sir.")
+        else:
+            speak("Which plugin should I disable, Sir?")
+        return
+    
+    elif "enable plugin" in command:
+        plugin_name = command.replace("enable plugin", "").strip()
+        if plugin_name:
+            loader = get_plugin_loader()
+            if loader.enable_plugin(plugin_name):
+                speak(f"Enabled {plugin_name} plugin, Sir.")
+            else:
+                speak(f"Could not find plugin {plugin_name}, Sir.")
+        else:
+            speak("Which plugin should I enable, Sir?")
+        return
+    
+    # =========================================
+    # PLUGIN COMMANDS (check before built-ins)
+    # =========================================
+    
+    if PLUGIN_CONFIG.get("enabled", True):
+        if handle_plugin_command(command):
+            return  # Plugin handled the command
     
     # =========================================
     # SYSTEM COMMANDS
@@ -83,34 +148,49 @@ def execute_command(command):
     
     if "open notepad" in command:
         open_application("Notepad", ["notepad.exe"])
+        return "Opening Notepad for you, Sir."
     elif "open calculator" in command:
         open_application("Calculator", ["calc.exe"])
+        return "Opening Calculator, Sir."
     elif any(x in command for x in ["close tab", "close this tab"]):
         close_tab()
+        return "Closing the active tab, Sir."
     elif any(x in command for x in ["jarvis shutdown", "stop jarvis", "goodbye jarvis"]):
         shutdown_jarvis()
+        return "Shutting down. Goodbye, Sir."
     elif "take screenshot" in command or "screenshot" in command:
         take_screenshot()
+        return "Screenshot taken, Sir."
     elif "lock screen" in command or "lock computer" in command:
         lock_screen()
+        return "Locking the screen, Sir."
+    
+    elif "run diagnostics" in command or "system check" in command:
+        from diagnostics import run_diagnostics
+        run_diagnostics()
+        return "Diagnostic report generated, Sir. Check the console."
     
     # =========================================
     # SYSTEM MONITORING
     # =========================================
     
     elif any(x in command for x in ["system status", "how's the system", "system health"]):
-        system_status()
+        return system_status()
     elif any(x in command for x in ["cpu status", "cpu usage"]):
-        cpu_status()
+        return f"CPU usage is at {cpu_status()}%, Sir."
     elif any(x in command for x in ["memory status", "ram usage", "memory usage"]):
-        memory_status()
+        mem = memory_status()
+        return f"Memory usage is at {mem['percent']}%, Sir."
     elif any(x in command for x in ["battery status", "battery level", "battery"]):
-        battery_status()
+        return str(battery_status())
     elif "kill" in command:
         # Extract app name: "kill chrome" -> "chrome"
         app_name = command.replace("kill", "").strip()
         if app_name:
-            kill_app(app_name)
+            if kill_app(app_name):
+                return f"Terminated {app_name}, Sir."
+            return f"I couldn't find {app_name} running, Sir."
+        return "What should I kill, Sir?"
     
     # =========================================
     # PRODUCTIVITY COMMANDS
@@ -126,28 +206,45 @@ def execute_command(command):
             message, time_str = parts.rsplit(" at ", 1)
             remind_me(message.strip(), f"at {time_str}")
         else:
-            speak("When should I remind you, Sir?")
+            if speak_response: speak("When should I remind you, Sir?")
+            return "When should I remind you, Sir?"
+
+    elif "schedule" in command or "appointment" in command:
+        # Simple extraction: "schedule meeting at 2026-03-14T14:00:00"
+        # In a real scenario, we'd use more advanced LLM parsing
+        calendar = get_calendar_manager()
+        response = calendar.add_event(command, datetime.datetime.now().isoformat())
+        if speak_response: speak(response)
+        return response
     
     elif "take a note" in command or "note this" in command:
         content = command.replace("take a note", "").replace("note this", "").strip()
         if content:
             take_note(content)
+            return f"Note saved: {content}"
         else:
-            speak("What should I note, Sir?")
+            if speak_response: speak("What should I note, Sir?")
+            return "What should I note, Sir?"
     
     elif "set timer" in command or "set a timer" in command:
         duration = command.replace("set a timer for", "").replace("set timer for", "").replace("set timer", "").strip()
         if duration:
             set_timer(duration)
+            return f"Timer set for {duration}, Sir."
         else:
-            speak("For how long, Sir?")
+            if speak_response: speak("For how long, Sir?")
+            return "For how long, Sir?"
     
     elif "add to do" in command or "add todo" in command or "add to my list" in command:
         task = command.replace("add to do", "").replace("add todo", "").replace("add to my list", "").strip()
         if task:
             add_todo(task)
+            # Also sync to Notion
+            notion = get_notion_manager()
+            notion.add_task(task)
         else:
-            speak("What task should I add, Sir?")
+            if speak_response: speak("What task should I add, Sir?")
+            return "What task should I add, Sir?"
     
     elif "read my notes" in command or "show notes" in command:
         productivity = get_productivity()
@@ -162,20 +259,20 @@ def execute_command(command):
     # =========================================
     
     elif any(x in command for x in ["what's on screen", "what's on my screen", "describe screen"]):
-        whats_on_screen()
+        return whats_on_screen()
     
     elif any(x in command for x in ["check for errors", "any errors", "see any errors"]):
-        check_errors()
+        return check_errors()
     
     elif any(x in command for x in ["help with code", "help me code", "explain this code"]):
-        help_with_code()
+        return help_with_code()
     
     # =========================================
     # PROACTIVE & BRIEFING COMMANDS
     # =========================================
     
     elif any(x in command for x in ["morning briefing", "daily briefing", "brief me"]):
-        morning_briefing()
+        return morning_briefing()
     
     elif "encourage me" in command or "motivate me" in command:
         speak(get_encouragement())
@@ -208,22 +305,31 @@ def execute_command(command):
     # Simple web commands
     elif "open youtube" in command:
         open_website("YouTube", "https://www.youtube.com")
+        return "Opening YouTube, Sir."
     elif "open instagram" in command:
         open_website("Instagram", "https://www.instagram.com")
+        return "Opening Instagram, Sir."
     elif "open facebook" in command:
         open_website("Facebook", "https://www.facebook.com")
+        return "Opening Facebook, Sir."
     elif "open twitter" in command or "open x" in command:
         open_website("Twitter", "https://twitter.com")
+        return "Opening X, Sir."
     elif "open github" in command:
         open_website("GitHub", "https://github.com")
+        return "Opening GitHub, Sir."
     elif "open linkedin" in command:
         open_website("LinkedIn", "https://www.linkedin.com")
+        return "Opening LinkedIn, Sir."
     elif "open reddit" in command:
         open_website("Reddit", "https://www.reddit.com")
+        return "Opening Reddit, Sir."
     elif "open chatgpt" in command:
         open_website("ChatGPT", "https://chat.openai.com")
+        return "Opening ChatGPT, Sir."
     elif "open incognito" in command:
         open_incognito()
+        return "Opening browser in incognito, Sir."
     
     # Search commands
     elif "search" in command:
@@ -245,18 +351,18 @@ def execute_command(command):
     # AI CONVERSATION (Fallback to Gemini)
     # =========================================
     
-    else:
         # Use the AI brain for natural conversation
         brain = get_brain()
         response = brain.think(command)
         
         # Adapt response based on mood
         adapted_response = adapt_response(response)
-        speak(adapted_response)
+        if speak_response: speak(adapted_response)
         
         # Save to memory
         memory = get_memory()
         memory.save_conversation(command, adapted_response, mood=mood)
+        return adapted_response
 
 
 def main():
@@ -265,12 +371,22 @@ def main():
     # Get personality
     personality = get_personality()
     
+    # Initialize plugins
+    if PLUGIN_CONFIG.get("enabled", True):
+        print("🔌 Initializing plugin system...")
+        initialize_plugins(PLUGIN_CONFIG.get("disabled_plugins", []))
+    
     # Initial greeting
     speak(personality.get_greeting())
     speak("All systems operational. I am ready to assist.")
     
     # Start proactive monitoring
     start_proactive()
+    
+    # Initialize and start Telegram Bridge
+    print("📱 Initializing Telegram bridge...")
+    telegram = get_telegram_bridge(brain_callback=lambda cmd: execute_command(cmd, speak_response=False))
+    telegram.start()
     
     # Wake word activation
     speak("Say 'Hey Jarvis' to activate me.")

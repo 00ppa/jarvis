@@ -149,33 +149,30 @@ class GeminiProvider(AIProvider):
     """Google Gemini - Requires billing enabled."""
     
     def __init__(self):
-        self.client = None
-        self.model = "gemini-2.5-flash"
+        self.model = None
         try:
-            from google import genai
+            import google.generativeai as genai
             if GEMINI_API_KEY:
-                self.client = genai.Client(api_key=GEMINI_API_KEY)
-                print(f"✅ Gemini AI initialized with {self.model}")
+                genai.configure(api_key=GEMINI_API_KEY)
+                self.model = genai.GenerativeModel("gemini-pro")
+                print(f"✅ Gemini AI initialized")
         except ImportError:
-            print("⚠️ Google GenAI package not installed")
+            print("⚠️ Google GenerativeAI package not installed")
         except Exception as e:
             print(f"⚠️ Gemini initialization failed: {e}")
     
     def is_available(self) -> bool:
-        return self.client is not None
+        return self.model is not None
     
     def generate(self, prompt: str, system_prompt: str = None) -> str:
-        if not self.client:
+        if not self.model:
             raise Exception("Gemini not available")
         
         full_prompt = prompt
         if system_prompt:
             full_prompt = f"{system_prompt}\n\nUser: {prompt}"
         
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=full_prompt
-        )
+        response = self.model.generate_content(full_prompt)
         return response.text
 
 

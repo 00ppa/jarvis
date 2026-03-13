@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import re
 from modules.speech_module import speak
 from core.memory_module import get_memory
+import modules.calendar_module as calendar
 
 class ProductivityManager:
     """Manage reminders, notes, and productivity features."""
@@ -37,6 +38,14 @@ class ProductivityManager:
         if remind_at:
             reminder_id = self.memory.add_reminder(message, remind_at.isoformat())
             self._schedule_reminder(reminder_id, message, remind_at)
+            
+            # Sync with Google Calendar
+            try:
+                cal = calendar.get_calendar_manager()
+                cal.add_event(f"Reminder: {message}", remind_at.isoformat())
+            except Exception as e:
+                print(f"Calendar sync error: {e}")
+                
             return reminder_id
         return None
     
@@ -186,14 +195,18 @@ class ProductivityManager:
     def cancel_timer(self, timer_id=None):
         """Cancel a timer."""
         if timer_id and timer_id in self.active_timers:
-            self.active_timers[timer_id]["timer"].cancel()
+            timer_obj = self.active_timers[timer_id].get("timer")
+            if timer_obj:
+                timer_obj.cancel()
             del self.active_timers[timer_id]
             speak("Timer cancelled, Sir.")
             return True
         elif self.active_timers:
             # Cancel the most recent timer
             latest_id = max(self.active_timers.keys())
-            self.active_timers[latest_id]["timer"].cancel()
+            timer_obj = self.active_timers[latest_id].get("timer")
+            if timer_obj:
+                timer_obj.cancel()
             del self.active_timers[latest_id]
             speak("Timer cancelled, Sir.")
             return True
@@ -205,13 +218,15 @@ class ProductivityManager:
         now = datetime.now()
         active = []
         for tid, info in self.active_timers.items():
-            remaining = (info["end_time"] - now).total_seconds()
-            if remaining > 0:
-                active.append({
-                    "id": tid,
-                    "label": info["label"],
-                    "remaining_seconds": remaining
-                })
+            end_time = info.get("end_time")
+            if end_time and isinstance(end_time, datetime):
+                remaining = (end_time - now).total_seconds()
+                if remaining > 0:
+                    active.append({
+                        "id": tid,
+                        "label": info.get("label", "Unknown"),
+                        "remaining_seconds": remaining
+                    })
         return active
     
     # ============================================

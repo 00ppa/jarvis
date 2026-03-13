@@ -4,6 +4,7 @@ Handles greetings and casual conversation responses
 """
 
 from modules.speech_module import speak
+from config import JARVIS_CONFIG
 
 def respond_to_greetings(command):
     """
@@ -12,11 +13,13 @@ def respond_to_greetings(command):
     Returns:
         True if a greeting was handled, False otherwise
     """
+    user_name = JARVIS_CONFIG.get("user_name", "Sir")
+    
     if "good morning" in command:
-        speak("Good morning, Farhan Sir! Have a productive day ahead.")
+        speak(f"Good morning, {user_name}! Have a productive day ahead.")
         return True
     elif "good evening" in command:
-        speak("Good evening, Farhan Sir! Hope you're doing well.")
+        speak(f"Good evening, {user_name}! Hope you're doing well.")
         return True
     elif "good night" in command:
         speak("Good night, Sir. Sleep well and dream of great code!")

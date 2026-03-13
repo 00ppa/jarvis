@@ -1,11 +1,10 @@
-"""
-JARVIS Configuration Module
-Centralized settings, API keys, and user preferences
-"""
-
 import os
 import json
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ============================================
 # PATHS
@@ -41,7 +40,18 @@ GROQ_MODEL = "llama-3.3-70b-versatile"  # Fast and powerful
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3")  # Run: ollama pull llama3
 
 # Gemini API (requires billing enabled)
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyDQ4_-3BW62VSdHJGS8TUSZ85nwpgNSp14")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# Telegram Bot (for mobile access)
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+
+# Google Calendar
+GOOGLE_CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
+
+# Notion
+NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
+NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
 
 # ============================================
 # JARVIS SETTINGS
@@ -49,7 +59,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyDQ4_-3BW62VSdHJGS8TUSZ8
 
 JARVIS_CONFIG = {
     # User info
-    "user_name": "Farhan Sir",
+    "user_name": os.environ.get("JARVIS_USER_NAME", "Sir"),
     "wake_words": ["hey jarvis", "hey jarvi", "jarvis", "ok jarvis"],
     
     # Voice settings
@@ -73,6 +83,17 @@ JARVIS_CONFIG = {
     # Work mode settings
     "work_mode_apps": ["code", "notepad++", "pycharm"],
     "work_mode_sites": ["github.com", "stackoverflow.com"],
+}
+
+# ============================================
+# PLUGIN SETTINGS
+# ============================================
+
+PLUGIN_CONFIG = {
+    "enabled": True,              # Master enable/disable for plugins
+    "plugins_dir": "plugins",     # Plugin directory (relative to BASE_DIR)
+    "disabled_plugins": [],       # List of disabled plugin names
+    "auto_reload": False,         # Hot reload on file change (future feature)
 }
 
 # ============================================

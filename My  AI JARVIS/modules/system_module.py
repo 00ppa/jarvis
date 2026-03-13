@@ -9,8 +9,25 @@ import pyautogui
 from modules.speech_module import speak
 
 def open_application(app_name, command):
-    """Open an application by command."""
+    """Open an application by command with smart path discovery."""
     speak(f"Opening {app_name}, Sir.")
+    
+    # Smart search for chrome if it fails
+    if app_name.lower() == "chrome":
+        possible_paths = [
+            command,
+            os.path.join(os.environ.get("ProgramFiles", ""), "Google/Chrome/Application/chrome.exe"),
+            os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Google/Chrome/Application/chrome.exe"),
+            os.path.join(os.environ.get("LocalAppData", ""), "Google/Chrome/Application/chrome.exe"),
+        ]
+        for path in possible_paths:
+            if os.path.exists(path) or path == command:
+                try:
+                    subprocess.Popen(path)
+                    return
+                except:
+                    continue
+    
     try:
         subprocess.Popen(command)
     except FileNotFoundError:

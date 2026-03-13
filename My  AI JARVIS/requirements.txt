@@ -1,6 +1,9 @@
 # JARVIS Ultimate AI Assistant - Dependencies
 # Install with: pip install -r requirements.txt
 
+# Environment variables
+python-dotenv>=1.0.0
+
 # Core speech
 SpeechRecognition>=3.10.0
 pyttsx3>=2.90
@@ -9,7 +12,7 @@ pyaudio>=0.2.13  # May need `pipwin install pyaudio` on Windows
 # AI Providers (pick one or more)
 groq>=0.4.0           # FREE - get key from console.groq.com
 ollama>=0.1.0         # LOCAL - install from ollama.com
-google-genai>=0.1.0   # Gemini - requires billing enabled
+google-generativeai>=0.3.0   # Gemini - requires billing enabled
 
 # System automation
 pyautogui>=0.9.54
@@ -26,3 +29,11 @@ speedtest-cli>=2.1.3
 
 # Text processing
 textblob>=0.17.1
+
+# Mobile & Cloud Integration
+python-telegram-bot>=20.0
+google-api-python-client>=2.0
+google-auth-oauthlib>=1.0
+google-auth-httplib2>=0.1.0
+notion-client>=2.0.0
+colorama>=0.4.6
